@@ -1,112 +1,332 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>越南語單字卡</title>
+    <title>越南語行動單字卡 App - 增強版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        :root { --primary: #2563eb; --bg: #f8fafc; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .card { background: white; width: 90%; max-width: 400px; height: 300px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; text-align: center; padding: 20px; position: relative; }
-        .word { font-size: 2rem; font-weight: bold; color: var(--primary); margin-bottom: 10px; }
-        .meaning { font-size: 1.5rem; color: #475569; display: none; }
-        .example { font-size: 1rem; color: #64748b; margin-top: 15px; display: none; font-style: italic; }
-        .controls { margin-top: 30px; display: flex; gap: 10px; }
-        button { padding: 12px 24px; border-radius: 8px; border: none; background: var(--primary); color: white; font-size: 1rem; cursor: pointer; }
-        .tts-btn { background: #10b981; margin-top: 10px; padding: 8px 16px; font-size: 0.9rem; }
-        #status { margin-top: 15px; color: #94a3b8; font-size: 0.8rem; }
+        .no-select { user-select: none; -webkit-user-select: none; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
-<body>
+<body class="bg-gray-100 text-gray-800 antialiased selection:bg-emerald-200">
 
-    <div class="card" id="flashcard" onclick="flipCard()">
-        <div class="word" id="word-text">Cà phê sữa đá</div>
-        <button class="tts-btn" onclick="event.stopPropagation(); speakText('word')">🔊 聽單字</button>
-        
-        <div class="meaning" id="meaning-text">冰煉乳咖啡</div>
-        <div class="example" id="example-text">Tôi muốn một ly cà phê sữa đá.</div>
-        <button id="ex-tts-btn" class="tts-btn" style="display:none;" onclick="event.stopPropagation(); speakText('example')">🔊 聽例句</button>
-    </div>
+    <div class="w-full max-w-xl mx-auto bg-white min-h-screen shadow-2xl relative flex flex-col">
+        <!-- 頂部標題 -->
+        <header class="bg-emerald-600 text-white p-5 pb-4 shadow-md z-10">
+            <h1 class="text-2xl font-bold mb-1"><i class="fas fa-language mr-2"></i>越南語行動單字卡</h1>
+            <p class="text-emerald-100 text-sm">支援南越 Siri 語音與例句朗讀</p>
+        </header>
 
-    <div id="status">準備中...</div>
+        <!-- 導覽列 -->
+        <nav class="flex border-b border-gray-200 bg-white sticky top-0 z-10">
+            <button id="tab-study" onclick="switchTab('study')" class="flex-1 py-3 text-center font-bold text-emerald-600 border-b-2 border-emerald-600">
+                <i class="fas fa-layer-group mr-1"></i> 複習
+            </button>
+            <button id="tab-manage" onclick="switchTab('manage')" class="flex-1 py-3 text-center font-bold text-gray-500 border-b-2 border-transparent hover:text-emerald-500">
+                <i class="fas fa-cog mr-1"></i> 管理單字
+            </button>
+        </nav>
 
-    <div class="controls">
-        <button onclick="prevCard()">上一個</button>
-        <button onclick="nextCard()">下一個</button>
+        <!-- 主要內容區 -->
+        <div class="flex-1 p-5 flex flex-col overflow-y-auto no-scrollbar relative">
+            
+            <!-- ================= [學習與複習視圖] ================= -->
+            <div id="view-study" class="flex flex-col flex-1">
+                
+                <!-- 進度條 -->
+                <div id="progress-container" class="mb-6 hidden">
+                    <div class="flex justify-between text-sm text-gray-500 mb-2 font-medium">
+                        <span>今日複習進度</span>
+                        <span id="progress-text">0 / 0 已複習</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                        <div id="progress-fill" class="bg-emerald-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- 卡片容器 -->
+                <div id="flashcard-container" class="flex-1 flex flex-col hidden">
+                    <div id="flashcard" onclick="handleCardClick()" class="relative w-full flex-1 min-h-[350px] bg-white rounded-2xl shadow-lg border border-gray-100 cursor-pointer flex flex-col p-6 transition-transform active:scale-[0.98] no-select">
+                        
+                        <!-- 單字語音按鈕 -->
+                        <button onclick="handleTTS(event, 'word')" class="absolute top-4 right-4 p-3 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full z-20">
+                            <i class="fas fa-volume-up text-xl"></i>
+                        </button>
+
+                        <!-- 卡片正面 -->
+                        <div id="card-front" class="flex-1 flex flex-col items-center justify-center w-full">
+                            <h2 class="text-4xl sm:text-5xl font-bold text-gray-800 mb-4 text-center break-words w-full" id="card-word"></h2>
+                            <p class="text-xl text-gray-400 font-medium tracking-wide" id="card-pron"></p>
+                        </div>
+
+                        <!-- 卡片背面 -->
+                        <div id="card-back" class="hidden flex-1 flex flex-col w-full h-full justify-between">
+                            <div class="pt-2 text-center">
+                                <h3 class="text-xl font-bold text-gray-500 mb-1" id="card-word-back"></h3>
+                                <p class="text-gray-400 text-sm mb-4" id="card-pron-back"></p>
+                            </div>
+                            
+                            <div class="flex-1 flex flex-col justify-center items-center">
+                                <h2 class="text-3xl sm:text-4xl font-bold text-emerald-700 mb-4 text-center" id="card-meaning"></h2>
+                                <div class="flex items-center gap-2 px-2">
+                                    <p class="text-gray-600 text-center italic text-lg leading-relaxed" id="card-example"></p>
+                                    <button onclick="handleTTS(event, 'example')" class="p-2 text-emerald-500 hover:bg-emerald-50 rounded-full">
+                                        <i class="fas fa-comment-dots"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="flex justify-center gap-2 mt-6 pb-2">
+                                <span class="px-3 py-1 bg-gray-100 text-xs text-gray-500 rounded-lg" id="card-cat"></span>
+                                <span class="px-3 py-1 bg-emerald-50 text-xs text-emerald-600 rounded-lg font-bold" id="card-level"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Anki 按鈕 -->
+                    <div id="action-buttons" class="hidden w-full grid grid-cols-4 gap-2 mt-5 no-select">
+                        <button onclick="answerCard(0)" class="flex flex-col items-center py-3 bg-red-50 text-red-700 rounded-xl">
+                            <span class="font-bold">Again</span>
+                            <span class="text-xs opacity-70" id="lbl-again">1m</span>
+                        </button>
+                        <button onclick="answerCard(1)" class="flex flex-col items-center py-3 bg-orange-50 text-orange-700 rounded-xl">
+                            <span class="font-bold">Hard</span>
+                            <span class="text-xs opacity-70" id="lbl-hard">6m</span>
+                        </button>
+                        <button onclick="answerCard(2)" class="flex flex-col items-center py-3 bg-blue-50 text-blue-700 rounded-xl">
+                            <span class="font-bold">Good</span>
+                            <span class="text-xs opacity-70" id="lbl-good">10m</span>
+                        </button>
+                        <button onclick="answerCard(3)" class="flex flex-col items-center py-3 bg-green-50 text-green-700 rounded-xl">
+                            <span class="font-bold">Easy</span>
+                            <span class="text-xs opacity-70" id="lbl-easy">4d</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 學習完成 -->
+                <div id="done-view" class="hidden flex-1 flex flex-col items-center justify-center text-center py-10">
+                    <div class="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center text-3xl mb-4">🎉</div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">太棒了！</h2>
+                    <p class="text-gray-500 mb-6 px-4" id="done-message">目前沒有需要複習的單字。</p>
+                    <button onclick="initStudySession()" class="px-8 py-3 bg-emerald-600 text-white font-bold rounded-full shadow-lg">
+                        重新檢查
+                    </button>
+                </div>
+            </div>
+
+            <!-- ================= [管理單字視圖] ================= -->
+            <div id="view-manage" class="hidden flex-1 flex flex-col pb-6">
+                <div class="bg-white p-5 rounded-2xl border border-gray-200 mb-6">
+                    <h3 class="font-bold mb-2">批次匯入 CSV</h3>
+                    <label class="w-full flex items-center justify-center px-4 py-3 bg-emerald-50 text-emerald-700 rounded-xl border border-dashed border-emerald-200 cursor-pointer">
+                        <i class="fas fa-cloud-upload-alt mr-2"></i> 選擇 CSV 檔案
+                        <input type="file" id="csv-upload" accept=".csv" class="hidden" onchange="handleCSV(event)">
+                    </label>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-gray-200 mb-6">
+                    <h3 class="font-bold mb-4">新增單字</h3>
+                    <form id="form-add" onsubmit="handleAddWord(event)" class="space-y-3">
+                        <div class="grid grid-cols-2 gap-3">
+                            <input type="text" id="add-word" placeholder="越南文" class="px-4 py-2 bg-gray-50 border rounded-xl" required>
+                            <input type="text" id="add-meaning" placeholder="中文" class="px-4 py-2 bg-gray-50 border rounded-xl" required>
+                        </div>
+                        <input type="text" id="add-example" placeholder="例句" class="w-full px-4 py-2 bg-gray-50 border rounded-xl">
+                        <div class="grid grid-cols-3 gap-3">
+                            <input type="text" id="add-pron" placeholder="發音" class="px-4 py-2 bg-gray-50 border rounded-xl text-sm">
+                            <input type="text" id="add-category" placeholder="類別" class="px-4 py-2 bg-gray-50 border rounded-xl text-sm">
+                            <input type="text" id="add-level" placeholder="難度" class="px-4 py-2 bg-gray-50 border rounded-xl text-sm">
+                        </div>
+                        <button type="submit" class="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl">新增單字</button>
+                    </form>
+                </div>
+
+                <div id="word-list" class="space-y-3"></div>
+            </div>
+        </div>
     </div>
 
     <script>
-        // 以下資料來自程式邏輯判斷：手動指定 Siri 聲音 4
-        let cards = [
-            { Word: "Cà phê sữa đá", Meaning: "冰煉乳咖啡", Example: "Tôi muốn một ly cà phê sữa đá." },
-            { Word: "Phở bò", Meaning: "牛肉河粉", Example: "Phở bò ở đây rất ngon." }
-        ];
-        let currentIndex = 0;
+        const STORAGE_KEY = 'vn_anki_deck_v2';
+        let deck = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+        let dueCards = [];
+        let currentCard = null;
         let isFlipped = false;
+        let sessionTotalDue = 0;
+        let sessionStudied = 0;
 
-        // 核心功能：朗讀聲音鎖定
-        function speakText(type) {
-            const text = type === 'word' ? cards[currentIndex].Word : cards[currentIndex].Example;
+        // 語音核心邏輯：鎖定南越 Siri 4
+        function playTTS(text) {
+            if (!text) return;
+            window.speechSynthesis.cancel();
             const msg = new SpeechSynthesisUtterance(text);
             msg.lang = 'vi-VN';
-
-            // 取得所有語音清單
-            const voices = window.speechSynthesis.getVoices();
             
-            // 關鍵邏輯：優先找尋名稱包含 "Siri" 且有 "4" 的聲音
+            const voices = window.speechSynthesis.getVoices();
+            // 尋找 Siri 聲音 4
             const targetVoice = voices.find(v => 
-                v.lang.includes('vi') && 
-                v.name.includes('Siri') && 
-                v.name.includes('4')
-            ) || voices.find(v => v.lang.includes('vi')); // 找不到就用隨機越南語
+                v.lang.includes('vi') && v.name.includes('Siri') && v.name.includes('4')
+            ) || voices.find(v => v.lang.includes('vi'));
 
-            if (targetVoice) {
-                msg.voice = targetVoice;
-                console.log("使用語音:", targetVoice.name);
-            }
-
+            if (targetVoice) msg.voice = targetVoice;
             window.speechSynthesis.speak(msg);
         }
 
-        function flipCard() {
-            isFlipped = !isFlipped;
-            document.getElementById('meaning-text').style.display = isFlipped ? 'block' : 'none';
-            document.getElementById('example-text').style.display = isFlipped ? 'block' : 'none';
-            document.getElementById('ex-tts-btn').style.display = isFlipped ? 'inline-block' : 'none';
+        function handleTTS(e, type) {
+            e.stopPropagation();
+            if (!currentCard) return;
+            const text = type === 'word' ? currentCard.word : currentCard.example;
+            playTTS(text);
         }
 
-        function updateCard() {
+        function handleCardClick() {
+            if (!isFlipped && currentCard) {
+                isFlipped = true;
+                document.getElementById('card-front').classList.add('hidden');
+                document.getElementById('card-back').classList.remove('hidden');
+                document.getElementById('action-buttons').classList.remove('hidden');
+                // 翻面後可以自動朗讀單字，如果需要的話可加入：playTTS(currentCard.word);
+            }
+        }
+
+        function saveDeck() { localStorage.setItem(STORAGE_KEY, JSON.stringify(deck)); }
+
+        function switchTab(tab) {
+            document.getElementById('view-study').classList.toggle('hidden', tab !== 'study');
+            document.getElementById('view-manage').classList.toggle('hidden', tab !== 'manage');
+            document.getElementById('tab-study').className = tab === 'study' ? "flex-1 py-3 text-center font-bold text-emerald-600 border-b-2 border-emerald-600" : "flex-1 py-3 text-center font-bold text-gray-500";
+            document.getElementById('tab-manage').className = tab === 'manage' ? "flex-1 py-3 text-center font-bold text-emerald-600 border-b-2 border-emerald-600" : "flex-1 py-3 text-center font-bold text-gray-500";
+            if (tab === 'study') initStudySession(); else renderManageList();
+        }
+
+        // --- Anki 邏輯 ---
+        function initStudySession() {
+            const now = Date.now();
+            // 今日進度邏輯：nextReview <= 現在時間 或 從未複習過
+            dueCards = deck.filter(c => !c.nextReview || c.nextReview <= now);
+            sessionTotalDue = dueCards.length;
+            sessionStudied = 0;
+            loadNextCard();
+        }
+
+        function loadNextCard() {
             isFlipped = false;
-            const card = cards[currentIndex];
-            document.getElementById('word-text').innerText = card.Word;
-            document.getElementById('meaning-text').innerText = card.Meaning;
-            document.getElementById('example-text').innerText = card.Example;
-            
-            // 隱藏背面資訊
-            document.getElementById('meaning-text').style.display = 'none';
-            document.getElementById('example-text').style.display = 'none';
-            document.getElementById('ex-tts-btn').style.display = 'none';
-            
-            document.getElementById('status').innerText = `目前進度: ${currentIndex + 1} / ${cards.length}`;
-        }
+            const now = Date.now();
+            dueCards = deck.filter(c => !c.nextReview || c.nextReview <= now);
+            dueCards.sort((a, b) => (a.nextReview || 0) - (b.nextReview || 0));
 
-        function nextCard() {
-            if (currentIndex < cards.length - 1) {
-                currentIndex++;
-                updateCard();
+            if (dueCards.length > 0) {
+                currentCard = dueCards[0];
+                renderCard();
+            } else {
+                currentCard = null;
+                renderDone();
             }
+            updateProgress();
         }
 
-        function prevCard() {
-            if (currentIndex > 0) {
-                currentIndex--;
-                updateCard();
-            }
+        function renderCard() {
+            document.getElementById('flashcard-container').classList.remove('hidden');
+            document.getElementById('progress-container').classList.remove('hidden');
+            document.getElementById('done-view').classList.add('hidden');
+            document.getElementById('card-front').classList.remove('hidden');
+            document.getElementById('card-back').classList.add('hidden');
+            document.getElementById('action-buttons').classList.add('hidden');
+
+            document.getElementById('card-word').innerText = currentCard.word;
+            document.getElementById('card-pron').innerText = currentCard.pronunciation ? `/${currentCard.pronunciation}/` : '';
+            document.getElementById('card-word-back').innerText = currentCard.word;
+            document.getElementById('card-pron-back').innerText = currentCard.pronunciation ? `/${currentCard.pronunciation}/` : '';
+            document.getElementById('card-meaning').innerText = currentCard.meaning;
+            document.getElementById('card-example').innerText = currentCard.example || '';
+            document.getElementById('card-cat').innerText = currentCard.category || '一般';
+            document.getElementById('card-level').innerText = currentCard.level || 'A1';
+            
+            calculateIntervals();
         }
 
-        // 初始化語音（部分瀏覽器需要預熱）
+        function calculateIntervals() {
+            const ease = currentCard.ease || 2.5;
+            const interval = currentCard.interval || 0;
+            const reps = currentCard.reps || 0;
+            document.getElementById('lbl-again').innerText = "1m";
+            document.getElementById('lbl-hard').innerText = reps === 0 ? "6m" : (Math.max(1, Math.round(interval * 1.2))) + "d";
+            document.getElementById('lbl-good').innerText = reps === 0 ? "10m" : (Math.round(interval * ease)) + "d";
+            document.getElementById('lbl-easy').innerText = reps === 0 ? "4d" : (Math.round(interval * ease * 1.3)) + "d";
+        }
+
+        function answerCard(quality) {
+            let ease = currentCard.ease || 2.5;
+            let interval = currentCard.interval || 0;
+            let reps = currentCard.reps || 0;
+
+            if (quality === 0) { interval = 0; reps = 0; ease = Math.max(1.3, ease - 0.2); currentCard.nextReview = Date.now() + 60000; }
+            else if (quality === 1) { interval = reps === 0 ? 0.004 : interval * 1.2; ease = Math.max(1.3, ease - 0.15); currentCard.nextReview = Date.now() + interval * 86400000; }
+            else if (quality === 2) { interval = reps === 0 ? 0.007 : interval * ease; reps++; currentCard.nextReview = Date.now() + interval * 86400000; }
+            else { interval = reps === 0 ? 4 : interval * ease * 1.3; ease += 0.15; reps++; currentCard.nextReview = Date.now() + interval * 86400000; }
+
+            currentCard.interval = interval; currentCard.reps = reps; currentCard.ease = ease;
+            if (quality > 0) sessionStudied++;
+            saveDeck(); loadNextCard();
+        }
+
+        function updateProgress() {
+            const p = sessionTotalDue > 0 ? (sessionStudied / sessionTotalDue) * 100 : 0;
+            document.getElementById('progress-fill').style.width = `${Math.min(p, 100)}%`;
+            document.getElementById('progress-text').innerText = `${sessionStudied} / ${sessionTotalDue} 已複習`;
+        }
+
+        function renderDone() {
+            document.getElementById('flashcard-container').classList.add('hidden');
+            document.getElementById('progress-container').classList.add('hidden');
+            document.getElementById('done-view').classList.remove('hidden');
+        }
+
+        // --- 管理功能 ---
+        function handleCSV(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const lines = ev.target.result.replace(/^\uFEFF/, '').split(/\r?\n/);
+                let count = 0;
+                for (let i = 1; i < lines.length; i++) {
+                    const arr = lines[i].split(',').map(s => s.trim().replace(/^"|"$/g, ''));
+                    if (arr[0] && arr[1]) {
+                        deck.push({ id: Date.now() + i, word: arr[0], meaning: arr[1], example: arr[2] || '', pronunciation: arr[3] || '', category: arr[4] || '', level: arr[5] || '', reps: 0, interval: 0, ease: 2.5, nextReview: 0 });
+                        count++;
+                    }
+                }
+                saveDeck(); alert(`成功匯入 ${count} 個單字`); switchTab('manage');
+            };
+            reader.readAsText(file);
+        }
+
+        function handleAddWord(e) {
+            e.preventDefault();
+            const word = { id: Date.now(), word: document.getElementById('add-word').value, meaning: document.getElementById('add-meaning').value, example: document.getElementById('add-example').value, pronunciation: document.getElementById('add-pron').value, category: document.getElementById('add-category').value, level: document.getElementById('add-level').value, reps: 0, interval: 0, ease: 2.5, nextReview: 0 };
+            deck.push(word); saveDeck(); e.target.reset(); renderManageList();
+        }
+
+        function renderManageList() {
+            document.getElementById('word-list').innerHTML = deck.map(c => `
+                <div class="flex justify-between items-center p-4 bg-gray-50 rounded-xl border">
+                    <div><p class="font-bold">${c.word}</p><p class="text-sm text-gray-500">${c.meaning}</p></div>
+                    <button onclick="deleteCard(${c.id})" class="text-red-400"><i class="fas fa-trash-alt"></i></button>
+                </div>
+            `).reverse().join('');
+        }
+
+        function deleteCard(id) { deck = deck.filter(c => c.id !== id); saveDeck(); renderManageList(); }
+
+        // 初始化
         window.speechSynthesis.getVoices();
-        updateCard();
+        switchTab('study');
     </script>
 </body>
 </html>
